@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: Run checks and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: JavaScript syntax check
+        run: |
+          echo "Checking JavaScript files for syntax errors..."
+          set -e
+          files=$(git ls-files '*.js' | grep -v '^node_modules/' || true)
+          if [ -n "$files" ]; then
+            for f in $files; do
+              echo "Checking $f"
+              node --check "$f"
+            done
+          else
+            echo "No JavaScript files found."
+          fi
+
+      - name: HTML validation (html-validate via npx)
+        run: |
+          echo "Validating HTML files..."
+          set -e
+          files=$(git ls-files '*.html' || true)
+          if [ -n "$files" ]; then
+            # npx --yes will install html-validate temporarily
+            npx --yes html-validate $files
+          else
+            echo "No HTML files found."
+          fi
+
+      - name: Run npm test if package.json exists
+        env:
+          CI: true
+        run: |
+          if [ -f package.json ]; then
+            echo "package.json found — installing and running tests"
+            npm ci
+            npm test --if-present
+          else
+            echo "No package.json found — skipping npm test"
+          fi
